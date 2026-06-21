@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>سودوکو</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, sans-serif;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 24px 16px;
+      color: #eee;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 8px;
+      letter-spacing: 2px;
+    }
+
+    .subtitle {
+      color: #94a3b8;
+      margin-bottom: 24px;
+      font-size: 0.95rem;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      margin-bottom: 20px;
+      align-items: center;
+    }
+
+    .controls label {
+      color: #cbd5e1;
+      font-size: 0.9rem;
+    }
+
+    select, button {
+      font-family: inherit;
+      font-size: 0.95rem;
+      border: none;
+      border-radius: 8px;
+      padding: 10px 18px;
+      cursor: pointer;
+      transition: transform 0.15s, background 0.15s;
+    }
+
+    select {
+      background: #334155;
+      color: #f1f5f9;
+      border: 1px solid #475569;
+    }
+
+    button {
+      background: #3b82f6;
+      color: white;
+      font-weight: 600;
+    }
+
+    button:hover { background: #2563eb; transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+
+    button.secondary { background: #475569; }
+    button.secondary:hover { background: #64748b; }
+
+    button.danger { background: #dc2626; }
+    button.danger:hover { background: #b91c1c; }
+
+    .status {
+      min-height: 28px;
+      margin-bottom: 16px;
+      font-size: 1rem;
+      font-weight: 600;
+      text-align: center;
+    }
+
+    .status.success { color: #4ade80; }
+    .status.error { color: #f87171; }
+    .status.info { color: #60a5fa; }
+
+    .game-area {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+    }
+
+    @media (min-width: 640px) {
+      .game-area {
+        flex-direction: row;
+        align-items: flex-start;
+        gap: 32px;
+      }
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(9, 1fr);
+      gap: 0;
+      background: #0f172a;
+      border: 3px solid #e2e8f0;
+      border-radius: 6px;
+      overflow: hidden;
+      width: min(90vw, 420px);
+      aspect-ratio: 1;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4);
+    }
+
+    .cell {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: clamp(1rem, 4vw, 1.6rem);
+      font-weight: 700;
+      background: #1e293b;
+      border: 1px solid #334155;
+      cursor: pointer;
+      user-select: none;
+      aspect-ratio: 1;
+      transition: background 0.1s;
+    }
+
+    .cell.fixed {
+      color: #f8fafc;
+      background: #0f172a;
+      cursor: default;
+    }
+
+    .cell.user {
+      color: #60a5fa;
+    }
+
+    .cell.selected {
+      background: #1e40af !important;
+      color: #fff;
+    }
+
+    .cell.highlight {
+      background: #1e3a5f;
+    }
+
+    .cell.same-number {
+      background: #312e81;
+      color: #c4b5fd;
+    }
+
+    .cell.error {
+      color: #fca5a5;
+      background: #450a0a;
+    }
+
+    .cell:nth-child(3n):not(:nth-child(9n)) { border-left: 2px solid #94a3b8; }
+    .cell:nth-child(n+19):nth-child(-n+27),
+    .cell:nth-child(n+46):nth-child(-n+54) { border-top: 2px solid #94a3b8; }
+
+    .numpad {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      width: min(90vw, 180px);
+    }
+
+    .numpad button {
+      aspect-ratio: 1;
+      font-size: 1.4rem;
+      padding: 0;
+      border-radius: 10px;
+    }
+
+    .numpad .clear-btn {
+      grid-column: span 3;
+      aspect-ratio: auto;
+      padding: 12px;
+      font-size: 1rem;
+    }
+
+    .timer {
+      font-size: 1.1rem;
+      color: #94a3b8;
+      font-variant-numeric: tabular-nums;
+    }
+  </style>
+</head>
+<body>
+  <h1>سودوکو</h1>
+  <p class="subtitle">اعداد ۱ تا ۹ را طوری قرار دهید که در هر سطر، ستون و مربع ۳×۳ تکرار نشوند.</p>
+
+  <div class="controls">
+    <label for="difficulty">سختی:</label>
+    <select id="difficulty">
+      <option value="easy">آسان</option>
+      <option value="medium" selected>متوسط</option>
+      <option value="hard">سخت</option>
+    </select>
+    <button id="newGame">بازی جدید</button>
+    <button id="checkBtn" class="secondary">بررسی</button>
+    <button id="hintBtn" class="secondary">راهنما</button>
+    <button id="solveBtn" class="danger">نمایش جواب</button>
+    <span class="timer" id="timer">۰۰:۰۰</span>
+  </div>
+
+  <div class="status info" id="status">برای شروع «بازی جدید» را بزنید.</div>
+
+  <div class="game-area">
+    <div class="board" id="board"></div>
+    <div class="numpad" id="numpad"></div>
+  </div>
+
+  <script>
+    const boardEl = document.getElementById('board');
+    const statusEl = document.getElementById('status');
+    const timerEl = document.getElementById('timer');
+    const difficultyEl = document.getElementById('difficulty');
+
+    let solution = [];
+    let puzzle = [];
+    let userGrid = [];
+    let fixed = [];
+    let selected = null;
+    let timerInterval = null;
+    let seconds = 0;
+
+    const DIFFICULTY = { easy: 38, medium: 48, hard: 55 };
+
+    function createEmpty() {
+      return Array.from({ length: 9 }, () => Array(9).fill(0));
+    }
+
+    function cloneGrid(grid) {
+      return grid.map(row => [...row]);
+    }
+
+    function isValid(grid, row, col, num) {
+      for (let i = 0; i < 9; i++) {
+        if (grid[row][i] === num || grid[i][col] === num) return false;
+      }
+      const br = Math.floor(row / 3) * 3;
+      const bc = Math.floor(col / 3) * 3;
+      for (let r = br; r < br + 3; r++) {
+        for (let c = bc; c < bc + 3; c++) {
+          if (grid[r][c] === num) return false;
+        }
+      }
+      return true;
+    }
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+
+    function fillBox(grid, row, col) {
+      const nums = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+      let idx = 0;
+      for (let r = row; r < row + 3; r++) {
+        for (let c = col; c < col + 3; c++) {
+          grid[r][c] = nums[idx++];
+        }
+      }
+    }
+
+    function solve(grid) {
+      for (let row = 0; row < 9; row++) {
+        for (let col = 0; col < 9; col++) {
+          if (grid[row][col] === 0) {
+            const nums = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+            for (const num of nums) {
+              if (isValid(grid, row, col, num)) {
+                grid[row][col] = num;
+                if (solve(grid)) return true;
+                grid[row][col] = 0;
+              }
+            }
+            return false;
+          }
+        }
+      }
+      return true;
+    }
+
+    function generateSolution() {
+      const grid = createEmpty();
+      for (let box = 0; box < 9; box += 3) {
+        fillBox(grid, box, box);
+      }
+      solve(grid);
+      return grid;
+    }
+
+    function countSolutions(grid, limit = 2) {
+      let count = 0;
+      function backtrack(g) {
+        if (count >= limit) return;
+        for (let row = 0; row < 9; row++) {
+          for (let col = 0; col < 9; col++) {
+            if (g[row][col] === 0) {
+              for (let num = 1; num <= 9; num++) {
+                if (isValid(g, row, col, num)) {
+                  g[row][col] = num;
+                  backtrack(g);
+                  g[row][col] = 0;
+                }
+              }
+              return;
+            }
+          }
+        }
+        count++;
+      }
+      backtrack(cloneGrid(grid));
+      return count;
+    }
+
+    function generatePuzzle(difficulty) {
+      solution = generateSolution();
+      puzzle = cloneGrid(solution);
+      const cells = shuffle(Array.from({ length: 81 }, (_, i) => ({
+        row: Math.floor(i / 9),
+        col: i % 9
+      })));
+      const target = DIFFICULTY[difficulty] || 48;
+      let removed = 0;
+
+      for (const { row, col } of cells) {
+        if (removed >= target) break;
+        const backup = puzzle[row][col];
+        puzzle[row][col] = 0;
+        if (countSolutions(puzzle) !== 1) {
+          puzzle[row][col] = backup;
+        } else {
+          removed++;
+        }
+      }
+    }
+
+    function toPersianNum(n) {
+      return String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
+    }
+
+    function formatTime(s) {
+      const m = Math.floor(s / 60);
+      const sec = s % 60;
+      return toPersianNum(String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0'));
+    }
+
+    function startTimer() {
+      stopTimer();
+      seconds = 0;
+      timerEl.textContent = formatTime(0);
+      timerInterval = setInterval(() => {
+        seconds++;
+        timerEl.textContent = formatTime(seconds);
+      }, 1000);
+    }
+
+    function stopTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    }
+
+    function setStatus(msg, type = 'info') {
+      statusEl.textContent = msg;
+      statusEl.className = 'status ' + type;
+    }
+
+    function initGame() {
+      generatePuzzle(difficultyEl.value);
+      userGrid = cloneGrid(puzzle);
+      fixed = puzzle.map(row => row.map(v => v !== 0));
+      selected = null;
+      renderBoard();
+      startTimer();
+      setStatus('بازی شروع شد! موفق باشید.', 'info');
+    }
+
+    function renderBoard() {
+      boardEl.innerHTML = '';
+      const selVal = selected !== null ? userGrid[selected.row][selected.col] : 0;
+
+      for (let row = 0; row < 9; row++) {
+        for (let col = 0; col < 9; col++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell';
+          cell.dataset.row = row;
+          cell.dataset.col = col;
+
+          const val = userGrid[row][col];
+          if (val !== 0) {
+            cell.textContent = toPersianNum(val);
+          }
+
+          if (fixed[row][col]) {
+            cell.classList.add('fixed');
+          } else {
+            cell.classList.add('user');
+            cell.addEventListener('click', () => selectCell(row, col));
+          }
+
+          if (selected && selected.row === row && selected.col === col) {
+            cell.classList.add('selected');
+          } else if (selected) {
+            const sameRow = selected.row === row;
+            const sameCol = selected.col === col;
+            const sameBox = Math.floor(selected.row / 3) === Math.floor(row / 3) &&
+                            Math.floor(selected.col / 3) === Math.floor(col / 3);
+            if (sameRow || sameCol || sameBox) cell.classList.add('highlight');
+            if (selVal !== 0 && val === selVal) cell.classList.add('same-number');
+          }
+
+          if (!fixed[row][col] && val !== 0 && !isValidExcept(userGrid, row, col, val)) {
+            cell.classList.add('error');
+          }
+
+          boardEl.appendChild(cell);
+        }
+      }
+    }
+
+    function isValidExcept(grid, row, col, num) {
+      for (let i = 0; i < 9; i++) {
+        if (i !== col && grid[row][i] === num) return false;
+        if (i !== row && grid[i][col] === num) return false;
+      }
+      const br = Math.floor(row / 3) * 3;
+      const bc = Math.floor(col / 3) * 3;
+      for (let r = br; r < br + 3; r++) {
+        for (let c = bc; c < bc + 3; c++) {
+          if ((r !== row || c !== col) && grid[r][c] === num) return false;
+        }
+      }
+      return true;
+    }
+
+    function selectCell(row, col) {
+      if (fixed[row][col]) return;
+      selected = { row, col };
+      renderBoard();
+    }
+
+    function setCellValue(num) {
+      if (!selected || fixed[selected.row][selected.col]) return;
+      userGrid[selected.row][selected.col] = num;
+      renderBoard();
+      if (isComplete() && isCorrect()) {
+        stopTimer();
+        setStatus('🎉 تبریک! سودوکو را درست حل کردید!', 'success');
+      }
+    }
+
+    function isComplete() {
+      return userGrid.every(row => row.every(v => v !== 0));
+    }
+
+    function isCorrect() {
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          if (userGrid[r][c] !== solution[r][c]) return false;
+        }
+      }
+      return true;
+    }
+
+    function checkBoard() {
+      let hasError = false;
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          const val = userGrid[r][c];
+          if (val !== 0 && !fixed[r][c] && !isValidExcept(userGrid, r, c, val)) {
+            hasError = true;
+          }
+        }
+      }
+      if (hasError) {
+        setStatus('برخی خانه‌ها اشتباه هستند.', 'error');
+      } else if (isComplete() && isCorrect()) {
+        stopTimer();
+        setStatus('🎉 همه‌چیز درست است!', 'success');
+      } else if (isComplete()) {
+        setStatus('جدول پر است ولی جواب نادرست است.', 'error');
+      } else {
+        setStatus('تا اینجا درست است. ادامه دهید!', 'success');
+      }
+      renderBoard();
+    }
+
+    function giveHint() {
+      const empty = [];
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          if (!fixed[r][c] && userGrid[r][c] === 0) empty.push({ r, c });
+        }
+      }
+      if (empty.length === 0) {
+        setStatus('جدول کامل است.', 'info');
+        return;
+      }
+      const { r, c } = empty[Math.floor(Math.random() * empty.length)];
+      userGrid[r][c] = solution[r][c];
+      fixed[r][c] = true;
+      selected = { row: r, col: c };
+      renderBoard();
+      setStatus('یک خانه پر شد.', 'info');
+      if (isComplete()) {
+        stopTimer();
+        setStatus('جدول کامل شد.', 'success');
+      }
+    }
+
+    function showSolution() {
+      userGrid = cloneGrid(solution);
+      stopTimer();
+      renderBoard();
+      setStatus('جواب کامل نمایش داده شد.', 'info');
+    }
+
+    function buildNumpad() {
+      const numpad = document.getElementById('numpad');
+      for (let i = 1; i <= 9; i++) {
+        const btn = document.createElement('button');
+        btn.textContent = toPersianNum(i);
+        btn.addEventListener('click', () => setCellValue(i));
+        numpad.appendChild(btn);
+      }
+      const clearBtn = document.createElement('button');
+      clearBtn.className = 'clear-btn secondary';
+      clearBtn.textContent = 'پاک کردن';
+      clearBtn.addEventListener('click', () => setCellValue(0));
+      numpad.appendChild(clearBtn);
+    }
+
+    document.getElementById('newGame').addEventListener('click', initGame);
+    document.getElementById('checkBtn').addEventListener('click', checkBoard);
+    document.getElementById('hintBtn').addEventListener('click', giveHint);
+    document.getElementById('solveBtn').addEventListener('click', showSolution);
+
+    document.addEventListener('keydown', (e) => {
+      if (!selected) return;
+      const key = e.key;
+      if (key >= '1' && key <= '9') {
+        setCellValue(parseInt(key, 10));
+      } else if (key === 'Backspace' || key === 'Delete' || key === '0') {
+        setCellValue(0);
+      } else if (key.startsWith('Arrow')) {
+        e.preventDefault();
+        let { row, col } = selected;
+        if (key === 'ArrowUp') row = Math.max(0, row - 1);
+        if (key === 'ArrowDown') row = Math.min(8, row + 1);
+        if (key === 'ArrowLeft') col = Math.min(8, col + 1);
+        if (key === 'ArrowRight') col = Math.max(0, col - 1);
+        if (!fixed[row][col]) selectCell(row, col);
+      }
+    });
+
+    buildNumpad();
+    initGame();
+  </script>
+</body>
+</html>
